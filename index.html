@@ -1,14 +1,503 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ahrefs_bulk_checker</title>
-    <script type="module" crossorigin src="/assets/index-DzsqkEVi.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-oaoJouW0.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Domain Authority Checker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .settings {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .settings label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        .settings input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .results-container {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: #3498db;
+            animation: spin 1s ease infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bulk Domain Authority Checker</h1>
+    
+    <div class="settings">
+        <h3>Settings</h3>
+        <label>
+            CF Captcha API URL:
+            <input type="text" id="cf-api-url" value="https://cf.gurusensei.dev/solve">
+        </label>
+        <label>
+            Concurrent Requests:
+            <input type="number" id="concurrent-requests" value="3" min="1" max="10">
+        </label>
+        <label>
+            Delay Between Requests (ms):
+            <input type="number" id="request-delay" value="1000" min="0">
+        </label>
+    </div>
+    
+    <div class="container">
+        <div>
+            <h3>Enter URLs (one per line)</h3>
+            <textarea id="urls-input" placeholder="example.com
+domain.org
+website.net"></textarea>
+            <button id="check-button">Check Domain Metrics</button>
+            <button id="export-csv" disabled>Export to CSV</button>
+            <button id="export-json" disabled>Export to JSON</button>
+        </div>
+        
+        <div class="results-container">
+            <h3>Results</h3>
+            <div id="status" class="status info">Ready to check domains.</div>
+            <div class="progress-bar">
+                <div id="progress" class="progress"></div>
+            </div>
+            <div id="results-table-container">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Domain Rating</th>
+                            <th>URL Rating</th>
+                            <th>Backlinks</th>
+                            <th>Ref Domains</th>
+                            <th>Dofollow BL</th>
+                            <th>Dofollow RD</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const urlsInput = document.getElementById('urls-input');
+        const checkButton = document.getElementById('check-button');
+        const exportCsvBtn = document.getElementById('export-csv');
+        const exportJsonBtn = document.getElementById('export-json');
+        const resultsBody = document.getElementById('results-body');
+        const statusDiv = document.getElementById('status');
+        const progressBar = document.getElementById('progress');
+        const cfApiUrlInput = document.getElementById('cf-api-url');
+        const concurrentRequestsInput = document.getElementById('concurrent-requests');
+        const requestDelayInput = document.getElementById('request-delay');
+        
+        // Global state
+        let results = [];
+        let isProcessing = false;
+        
+        // Clean and normalize URL
+        function normalizeUrl(url) {
+            // Remove protocol if present
+            url = url.trim().toLowerCase();
+            url = url.replace(/^https?:\/\//, '');
+            
+            // Remove trailing slash and www if present
+            url = url.replace(/\/$/, '');
+            
+            return url;
+        }
+        
+        // Get CF captcha token
+        async function getCfCaptchaToken(url) {
+            const cfApiUrl = cfApiUrlInput.value;
+            const fullUrl = `${cfApiUrl}?url=https://ahrefs.com/website-authority-checker/?input=${encodeURIComponent(url)}&sitekey=0x4AAAAAAAAzi9ITzSN9xKMi`;
+            
+            try {
+                const response = await fetch(fullUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                const data = await response.json();
+                return data.value;
+            } catch (error) {
+                console.error(`Error getting CF captcha token for ${url}:`, error);
+                throw error;
+            }
+        }
+        
+        // Get domain metrics from Ahrefs
+        async function getDomainMetrics(url, captchaToken) {
+            try {
+                const response = await fetch('https://ahrefs.com/v4/stGetFreeWebsiteOverview', {
+                    method: 'POST',
+                    headers: {
+                        'accept': '*/*',
+                        'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+                        'content-type': 'application/json; charset=utf-8',
+                        'origin': 'https://ahrefs.com',
+                        'referer': `https://ahrefs.com/website-authority-checker/?input=${url}`,
+                        'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+                        'sec-fetch-dest': 'empty',
+                        'sec-fetch-mode': 'cors',
+                        'sec-fetch-site': 'same-origin',
+                        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+                        'x-client-version': 'release-20250311-bk230231-3d8de0f482d19'
+                    },
+                    body: JSON.stringify({
+                        captcha: captchaToken,
+                        url: url
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data[0] === "Ok" && data[1]) {
+                    return {
+                        status: 'success',
+                        domainRating: data[1].domainRating || 0,
+                        urlRating: data[1].urlRating || 0,
+                        backlinks: data[1].backlinks || 0,
+                        refdomains: data[1].refdomains || 0,
+                        dofollowBacklinks: data[1].dofollowBacklinks || 0,
+                        dofollowRefdomains: data[1].dofollowRefdomains || 0
+                    };
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                console.error(`Error getting domain metrics for ${url}:`, error);
+                throw error;
+            }
+        }
+        
+        // Process a single URL
+        async function processUrl(url) {
+            try {
+                const normalizedUrl = normalizeUrl(url);
+                updateStatus(`Getting captcha token for ${normalizedUrl}...`, 'info');
+                
+                // Add row to table with loading status
+                const row = resultsBody.insertRow();
+                row.innerHTML = `
+                    <td>${normalizedUrl}</td>
+                    <td colspan="6">Loading...</td>
+                    <td><div class="spinner"></div> Processing</td>
+                `;
+                
+                const captchaToken = await getCfCaptchaToken(normalizedUrl);
+                
+                // Add delay between requests
+                await new Promise(resolve => setTimeout(resolve, parseInt(requestDelayInput.value)));
+                
+                updateStatus(`Getting metrics for ${normalizedUrl}...`, 'info');
+                const metrics = await getDomainMetrics(normalizedUrl, captchaToken);
+                
+                // Update row with data
+                row.innerHTML = `
+                    <td>${normalizedUrl}</td>
+                    <td>${metrics.domainRating}</td>
+                    <td>${metrics.urlRating}</td>
+                    <td>${metrics.backlinks.toLocaleString()}</td>
+                    <td>${metrics.refdomains.toLocaleString()}</td>
+                    <td>${metrics.dofollowBacklinks.toLocaleString()}</td>
+                    <td>${metrics.dofollowRefdomains.toLocaleString()}</td>
+                    <td>Success</td>
+                `;
+                
+                return {
+                    url: normalizedUrl,
+                    ...metrics
+                };
+            } catch (error) {
+                // Update row with error
+                const existingRows = Array.from(resultsBody.rows);
+                const row = existingRows.find(row => row.cells[0].textContent === normalizeUrl(url)) || resultsBody.insertRow();
+                
+                row.innerHTML = `
+                    <td>${normalizeUrl(url)}</td>
+                    <td colspan="6">Error: ${error.message}</td>
+                    <td>Failed</td>
+                `;
+                
+                return {
+                    url: normalizeUrl(url),
+                    status: 'error',
+                    error: error.message
+                };
+            }
+        }
+        
+        // Process URLs in parallel with rate limiting
+        async function processUrls(urls) {
+            const results = [];
+            const concurrentRequests = parseInt(concurrentRequestsInput.value);
+            let processedCount = 0;
+            
+            // Process in batches
+            for (let i = 0; i < urls.length; i += concurrentRequests) {
+                const batch = urls.slice(i, i + concurrentRequests);
+                const batchPromises = batch.map(url => processUrl(url));
+                
+                const batchResults = await Promise.all(batchPromises);
+                results.push(...batchResults);
+                
+                processedCount += batch.length;
+                updateProgress(processedCount / urls.length * 100);
+            }
+            
+            return results;
+        }
+        
+        // Export to CSV
+        function exportToCsv() {
+            if (results.length === 0) return;
+            
+            const headers = ['URL', 'Domain Rating', 'URL Rating', 'Backlinks', 'Ref Domains', 
+                            'Dofollow Backlinks', 'Dofollow Ref Domains', 'Status'];
+            
+            const csvContent = [
+                headers.join(','),
+                ...results.map(result => {
+                    if (result.status === 'success') {
+                        return [
+                            result.url,
+                            result.domainRating,
+                            result.urlRating,
+                            result.backlinks,
+                            result.refdomains,
+                            result.dofollowBacklinks,
+                            result.dofollowRefdomains,
+                            'Success'
+                        ].join(',');
+                    } else {
+                        return [
+                            result.url,
+                            '','','','','','',
+                            `Error: ${result.error}`
+                        ].join(',');
+                    }
+                })
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `domain-metrics-${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Export to JSON
+        function exportToJson() {
+            if (results.length === 0) return;
+            
+            const jsonContent = JSON.stringify(results, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `domain-metrics-${new Date().toISOString().split('T')[0]}.json`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Update status message
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Update progress bar
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+        
+        // Main function to handle checking domains
+        async function checkDomains() {
+            if (isProcessing) return;
+            isProcessing = true;
+            
+            try {
+                checkButton.disabled = true;
+                exportCsvBtn.disabled = true;
+                exportJsonBtn.disabled = true;
+                
+                // Clear previous results
+                results = [];
+                resultsBody.innerHTML = '';
+                updateProgress(0);
+                
+                // Get URLs from input
+                const urls = urlsInput.value
+                    .split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
+                if (urls.length === 0) {
+                    updateStatus('Please enter at least one URL.', 'error');
+                    isProcessing = false;
+                    checkButton.disabled = false;
+                    return;
+                }
+                
+                updateStatus(`Processing ${urls.length} URLs...`, 'info');
+                
+                // Process URLs
+                results = await processUrls(urls);
+                
+                // Enable export buttons
+                exportCsvBtn.disabled = false;
+                exportJsonBtn.disabled = false;
+                
+                updateStatus(`Completed processing ${urls.length} URLs.`, 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+                checkButton.disabled = false;
+            }
+        }
+        
+        // Event listeners
+        checkButton.addEventListener('click', checkDomains);
+        exportCsvBtn.addEventListener('click', exportToCsv);
+        exportJsonBtn.addEventListener('click', exportToJson);
+    </script>
+</body>
 </html>
